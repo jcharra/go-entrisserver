@@ -1,27 +1,27 @@
 package main
 
 import (
-	"net/http"
-	"log"
-	"github.com/gorilla/pat"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/gorilla/pat"
+	"log"
+	"net/http"
 	"strconv"
 	"strings"
-	"encoding/json"
 	"time"
-	"errors"
 )
 
 var Mux *pat.Router = pat.New()
 var Games map[int]*Game
 
 type Player struct {
-	Id              string    `json:"player_id"`
+	Id              string `json:"player_id"`
 	Penalties       []int
 	LastRequestTime time.Time
-	LastSnapshot    string    `json:"snapshot"`
+	LastSnapshot    string `json:"snapshot"`
 	PartIndex       int
-	Alive			bool
+	Alive           bool
 }
 
 type Game struct {
@@ -53,18 +53,18 @@ func (game *Game) addPlayer(name string) (string, error) {
 func newGame(width int, height int, capacity int, duckprob float32) *Game {
 	id := nextid()
 	g := &Game{Id: id,
-		Running: false,
-		Width: width,
-		Height: height,
+		Running:  false,
+		Width:    width,
+		Height:   height,
 		Capacity: capacity,
 		Duckprob: duckprob,
-		Players: make([]Player, 0)}
+		Players:  make([]Player, 0)}
 	Games[id] = g
 	return g
 }
 
 func nextid() int {
-	for i := 0;; i++ {
+	for i := 0; ; i++ {
 		if Games[i] == nil {
 			return i
 		}
@@ -155,16 +155,16 @@ func penaltyHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func unregistrationHandler(w http.ResponseWriter, req *http.Request) {
-	game_id, _ := strconv.Atoi(req.URL.Query().Get("game_id"))
-	player_id := req.URL.Query().Get("player_id")
+	game_id, _ := strconv.Atoi(req.FormValue("game_id"))
+	player_id := req.FormValue("player_id")
 
-	fmt.Println("Unregister player", player_id, " from game ", game_id)
+	fmt.Println("Unregister player", player_id, "from game", game_id)
 
 	game := Games[game_id]
-	for _, player := range game.Players {
+	for idx, player := range game.Players {
 		if player.Id == player_id {
-			// TODO: Y u no work?
-			player.Alive = false
+			// Not working as range copies slice values: players.Alive = false
+			game.Players[idx].Alive = false
 			return
 		}
 	}
