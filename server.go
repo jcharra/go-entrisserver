@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gorilla/pat"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -32,6 +33,7 @@ type Game struct {
 	Capacity int      `json:"size"`
 	Duckprob float32  `json:"duck_prob"`
 	Players  []Player `json:"screen_names"`
+	parts    []int
 }
 
 func (game *Game) addPlayer(name string) (string, error) {
@@ -50,6 +52,15 @@ func (game *Game) addPlayer(name string) (string, error) {
 	return name, nil
 }
 
+func (game *Game) getPlayer(name string) *Player {
+	for _, p := range game.Players {
+		if p.Id == name {
+			return &p
+		}
+	}
+	return nil
+}
+
 func newGame(width int, height int, capacity int, duckprob float32) *Game {
 	id := nextid()
 	g := &Game{Id: id,
@@ -58,7 +69,8 @@ func newGame(width int, height int, capacity int, duckprob float32) *Game {
 		Height:   height,
 		Capacity: capacity,
 		Duckprob: duckprob,
-		Players:  make([]Player, 0)}
+		Players:  make([]Player, 0),
+		parts:    make([]int, 0)}
 	Games[id] = g
 	return g
 }
@@ -143,10 +155,47 @@ func gamesListHandler(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, jsonMap)
 }
 
+func createRandomParts(duckprob float32, amount int) []int {
+	parts := make([]int, amount)
+	for i := 0; i < amount; i++ {
+		if rand.Float32() <= duckprob {
+			parts[i] = 0
+		} else {
+			parts[i] = rand.Intn(7) + 1
+		}
+	}
+	return parts
+}
+
+var NUM_PARTS_RETURNED = 5
+
 func partsHandler(w http.ResponseWriter, req *http.Request) {
-	// dummy ... :) get game ID and duck prob, then get or create parts
-	// according to player's part index.
-	writeJSON(w, []int{1, 2, 3})
+	gameId, _ := strconv.Atoi(req.URL.Query().Get("game_id"))
+	game := Games[gameId]
+
+	if game == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	playerId := req.URL.Query().Get("player_id")
+	player := game.getPlayer(playerId)
+
+	if player == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if player.PartIndex+NUM_PARTS_RETURNED > len(game.parts) {
+		// Parts are running out ... let's create some new ones
+		fmt.Println("Create", NUM_PARTS_RETURNED, "new parts")
+		newparts := createRandomParts(game.Duckprob, NUM_PARTS_RETURNED)
+		game.parts = append(game.parts, newparts...)
+	}
+
+	parts := game.parts[player.PartIndex : player.PartIndex+NUM_PARTS_RETURNED]
+
+	writeJSON(w, parts)
 }
 
 func penaltyHandler(w http.ResponseWriter, req *http.Request) {
