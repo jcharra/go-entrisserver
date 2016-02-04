@@ -22,7 +22,7 @@ type Player struct {
 	LastRequestTime time.Time
 	LastSnapshot    string `json:"snapshot"`
 	PartIndex       int
-	Alive           bool
+	Alive           bool `json:"alive"`
 }
 
 type Game struct {
@@ -90,7 +90,7 @@ func init() {
 	Mux.Get("/list", gamesListHandler)
 	Mux.Get("/getparts", partsHandler)
 	Mux.Get("/receive", penaltyHandler)
-	Mux.Get("/sendlines", linesHandler)
+	Mux.Post("/sendlines", linesHandler)
 	Mux.Get("/status", statusHandler)
 
 	Games = make(map[int]*Game)
@@ -201,19 +201,45 @@ func partsHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func penaltyHandler(w http.ResponseWriter, req *http.Request) {
-	// dummy
-	writeJSON(w, map[string]int{"penalty": 0})
+	gameId, _ := strconv.Atoi(req.URL.Query().Get("game_id"))
+
+	game := Games[gameId]
+	if game == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	playerId := req.URL.Query().Get("player_id")
+	player := game.getPlayer(playerId)
+
+	if player == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	snapshot := req.URL.Query().Get("game_snapshot")
+	player.LastSnapshot = snapshot
+
+	var pen int
+	if len(player.Penalties) == 0 {
+		pen = 0
+	} else {
+		pen = player.Penalties[0]
+		player.Penalties = player.Penalties[1:]
+	}
+
+	writeJSON(w, map[string]int{"penalty": pen})
 }
 
 func unregistrationHandler(w http.ResponseWriter, req *http.Request) {
-	game_id, _ := strconv.Atoi(req.FormValue("game_id"))
-	player_id := req.FormValue("player_id")
+	gameId, _ := strconv.Atoi(req.FormValue("game_id"))
+	playerId := req.FormValue("player_id")
 
-	fmt.Println("Unregister player", player_id, "from game", game_id)
+	fmt.Println("Unregister player", playerId, "from game", gameId)
 
-	game := Games[game_id]
+	game := Games[gameId]
 	for idx, player := range game.Players {
-		if player.Id == player_id {
+		if player.Id == playerId {
 			// Not working as range copies slice values: players.Alive = false
 			game.Players[idx].Alive = false
 			return
@@ -229,7 +255,23 @@ func statusHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func linesHandler(w http.ResponseWriter, req *http.Request) {
+	gameId, _ := strconv.Atoi(req.FormValue("game_id"))
+	game := Games[gameId]
+	if game == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
+	playerId := req.FormValue("player_id")
+	numLines, _ := strconv.Atoi(req.FormValue("num_lines"))
+
+	for idx, p := range game.Players {
+		if p.Id != playerId {
+			game.Players[idx].Penalties = append(game.Players[idx].Penalties, numLines)
+		}
+	}
+
+	writeJSON(w, map[string]string{"info": "Added lines"})
 }
 
 func writeJSON(w http.ResponseWriter, s interface{}) error {
