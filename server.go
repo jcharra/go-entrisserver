@@ -53,9 +53,9 @@ func (game *Game) addPlayer(name string) (string, error) {
 }
 
 func (game *Game) getPlayer(name string) *Player {
-	for _, p := range game.Players {
+	for idx, p := range game.Players {
 		if p.Id == name {
-			return &p
+			return &game.Players[idx]
 		}
 	}
 	return nil
@@ -167,7 +167,9 @@ func createRandomParts(duckprob float32, amount int) []int {
 	return parts
 }
 
-var NUM_PARTS_RETURNED = 5
+// Whenever the parts queue needs to be extended, this constant
+// determines how many parts will be pre-created each time.
+const NUM_PARTS_RETURNED = 100
 
 func partsHandler(w http.ResponseWriter, req *http.Request) {
 	gameId, _ := strconv.Atoi(req.URL.Query().Get("game_id"))
@@ -188,12 +190,12 @@ func partsHandler(w http.ResponseWriter, req *http.Request) {
 
 	if player.PartIndex+NUM_PARTS_RETURNED > len(game.parts) {
 		// Parts are running out ... let's create some new ones
-		fmt.Println("Create", NUM_PARTS_RETURNED, "new parts")
 		newparts := createRandomParts(game.Duckprob, NUM_PARTS_RETURNED)
 		game.parts = append(game.parts, newparts...)
 	}
 
 	parts := game.parts[player.PartIndex : player.PartIndex+NUM_PARTS_RETURNED]
+	player.PartIndex += NUM_PARTS_RETURNED
 
 	writeJSON(w, parts)
 }
