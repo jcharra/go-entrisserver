@@ -1,3 +1,3 @@
 # go-entrisserver
 
-This is the server for the [https://github.com/jcharra/Entris](Entris) game, reimplemented in Go.
+This is the server for the [Entris](https://github.com/jcharra/Entris) game, reimplemented in Go.
