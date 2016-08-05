@@ -8,10 +8,10 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
-	"os"
 )
 
 var Mux *pat.Router = pat.New()
@@ -27,14 +27,15 @@ type Player struct {
 }
 
 type Game struct {
-	Id       int      `json:"game_id"`
-	Running  bool     `json:"started"`
-	Width    int      `json:"width"`
-	Height   int      `json:"height"`
-	Capacity int      `json:"size"`
-	Duckprob float32  `json:"duck_prob"`
-	Players  []Player `json:"screen_names"`
-	parts    []int
+	Id           int      `json:"game_id"`
+	Running      bool     `json:"started"`
+	Width        int      `json:"width"`
+	Height       int      `json:"height"`
+	Capacity     int      `json:"size"`
+	Duckprob     float32  `json:"duck_prob"`
+	Players      []Player `json:"screen_names"`
+	creationTime time.Time
+	parts        []int
 }
 
 func (game *Game) addPlayer(name string) (string, error) {
@@ -65,13 +66,14 @@ func (game *Game) getPlayer(name string) *Player {
 func newGame(width int, height int, capacity int, duckprob float32) *Game {
 	id := nextid()
 	g := &Game{Id: id,
-		Running:  false,
-		Width:    width,
-		Height:   height,
-		Capacity: capacity,
-		Duckprob: duckprob,
-		Players:  make([]Player, 0),
-		parts:    make([]int, 0)}
+		Running:      false,
+		Width:        width,
+		Height:       height,
+		Capacity:     capacity,
+		Duckprob:     duckprob,
+		Players:      make([]Player, 0),
+		creationTime: time.Now(),
+		parts:        make([]int, 0)}
 	Games[id] = g
 	return g
 }
@@ -239,15 +241,18 @@ func unregistrationHandler(w http.ResponseWriter, req *http.Request) {
 	fmt.Println("Unregister player", playerId, "from game", gameId)
 
 	game := Games[gameId]
+
+	if game == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
 	for idx, player := range game.Players {
 		if player.Id == playerId {
 			// Not working as range copies slice values: players.Alive = false
 			game.Players[idx].Alive = false
-			return
 		}
 	}
-
-	w.WriteHeader(http.StatusNotFound)
 }
 
 func statusHandler(w http.ResponseWriter, req *http.Request) {
@@ -280,6 +285,32 @@ func writeJSON(w http.ResponseWriter, s interface{}) error {
 	return enc.Encode(s)
 }
 
+func cleanup() {
+	for gid, game := range Games {
+		if !game.Running {
+			if time.Now().Sub(game.creationTime) > 120*time.Second {
+				log.Println("Deleted waiting game", gid, "with timestamp", game.creationTime)
+				delete(Games, gid)
+			}
+			continue
+		}
+
+		lastRequest := time.Time{}
+
+		for _, player := range game.Players {
+			if player.LastRequestTime.After(lastRequest) {
+				lastRequest = player.LastRequestTime
+			}
+		}
+
+		if time.Now().Sub(lastRequest) > 10*time.Second {
+			log.Println("Deleted game due to timeout", gid)
+			delete(Games, gid)
+		}
+	}
+
+}
+
 func main() {
 
 	var port string
@@ -288,6 +319,14 @@ func main() {
 	} else {
 		port = ":8888"
 	}
+
+	ticker := time.NewTicker(5 * time.Second)
+	go func() {
+		for _ = range ticker.C {
+			cleanup()
+			// log.Println("Cleanup at", t)
+		}
+	}()
 
 	err := http.ListenAndServe(port, Mux)
 	if err != nil {
