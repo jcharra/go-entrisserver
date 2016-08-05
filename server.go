@@ -222,6 +222,7 @@ func penaltyHandler(w http.ResponseWriter, req *http.Request) {
 
 	snapshot := req.URL.Query().Get("game_snapshot")
 	player.LastSnapshot = snapshot
+	player.LastRequestTime = time.Now()
 
 	var pen int
 	if len(player.Penalties) == 0 {
