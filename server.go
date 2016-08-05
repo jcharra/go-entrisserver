@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 	"os"
-	"golang.org/x/mobile/exp/sprite/portable"
 )
 
 var Mux *pat.Router = pat.New()
