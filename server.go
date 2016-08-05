@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"os"
+	"golang.org/x/mobile/exp/sprite/portable"
 )
 
 var Mux *pat.Router = pat.New()
@@ -281,7 +283,14 @@ func writeJSON(w http.ResponseWriter, s interface{}) error {
 
 func main() {
 
-	err := http.ListenAndServe(":8888", Mux)
+	var port string
+	if len(os.Args) > 1 {
+		port = fmt.Sprintf(":%v", os.Args[1])
+	} else {
+		port = ":8888"
+	}
+
+	err := http.ListenAndServe(port, Mux)
 	if err != nil {
 		log.Fatal("Server error: ", err)
 	}
