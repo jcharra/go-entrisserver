@@ -296,15 +296,17 @@ func cleanup() {
 			continue
 		}
 
+		requestMade := false
 		lastRequest := time.Time{}
 
 		for _, player := range game.Players {
 			if player.LastRequestTime.After(lastRequest) {
 				lastRequest = player.LastRequestTime
+				requestMade = true
 			}
 		}
 
-		if time.Now().Sub(lastRequest) > 10*time.Second {
+		if requestMade && time.Now().Sub(lastRequest) > 10*time.Second {
 			log.Println("Deleted game due to timeout", gid)
 			delete(Games, gid)
 		}
