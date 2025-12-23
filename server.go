@@ -328,7 +328,6 @@ func main() {
 	go func() {
 		for _ = range ticker.C {
 			cleanup()
-			log.Println("Cleanup at", t)
 		}
 	}()
 
