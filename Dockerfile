@@ -1,7 +1,20 @@
-FROM golang
+# Build stage
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
 
-RUN go get github.com/jcharra/go-entrisserver
+# Copy module files first for efficient caching
+COPY go.mod go.sum ./
+RUN go mod download
 
-EXPOSE 8888
+# Copy the rest of the source code
+COPY . .
 
-CMD ["bin/go-entrisserver"]
+# Build the binary
+RUN go build -o server server.go
+
+# Runtime stage
+FROM alpine:latest
+WORKDIR /app
+COPY --from=builder /app/server .
+EXPOSE 8080
+CMD ["./server"]
