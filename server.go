@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/pat"
 	"log"
 	"math/rand"
 	"net/http"
@@ -12,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gorilla/pat"
 )
 
 var Mux *pat.Router = pat.New()
@@ -327,7 +328,7 @@ func main() {
 	go func() {
 		for _ = range ticker.C {
 			cleanup()
-			// log.Println("Cleanup at", t)
+			log.Println("Cleanup at", t)
 		}
 	}()
 
