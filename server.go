@@ -321,7 +321,7 @@ func main() {
 	if len(os.Args) > 1 {
 		port = fmt.Sprintf(":%v", os.Args[1])
 	} else {
-		port = ":80"
+		port = ":8080"
 	}
 
 	ticker := time.NewTicker(5 * time.Second)
